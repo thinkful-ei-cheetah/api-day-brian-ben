@@ -41,22 +41,18 @@ const shoppingList = (function(){
   
   
   function render() {
-    // Filter item list if store prop is true by item.checked === false
+   
     let items = [ ...store.items ];
     if (store.hideCheckedItems) {
       items = items.filter(item => !item.checked);
     }
   
-    // Filter item list if store prop `searchTerm` is not empty
     if (store.searchTerm) {
       items = items.filter(item => item.name.includes(store.searchTerm));
     }
-  
-    // render the shopping list in the DOM
+
     console.log('`render` ran');
     const shoppingListItemsString = generateShoppingItemsString(items);
-  
-    // insert that HTML into the DOM
     $('.js-shopping-list').html(shoppingListItemsString);
   }
   
@@ -66,8 +62,13 @@ const shoppingList = (function(){
       event.preventDefault();
       const newItemName = $('.js-shopping-list-entry').val();
       $('.js-shopping-list-entry').val('');
-      store.addItem(newItemName);
-      render();
+      api.createItem(newItemName)
+        .then(res => res.json())
+        .then((newItem) => {
+          store.addItem(newItem);
+          render();
+        })
+        .catch(error => { return error.message });
     });
   }
   
@@ -80,20 +81,35 @@ const shoppingList = (function(){
   function handleItemCheckClicked() {
     $('.js-shopping-list').on('click', '.js-item-toggle', event => {
       const id = getItemIdFromElement(event.currentTarget);
-      store.findAndToggleChecked(id);
-      render();
+      
+      const toggleItem = store.items.find(item => item.id === id);
+            
+      toggleItem.checked = !toggleItem.checked;
+
+      api.updateItem(id, toggleItem)
+        .then(res => res.json())
+        .then((newItem) => {
+          console.log(newItem);
+          store.addItem(newItem);
+          store.findAndUpdate(id, toggleItem);
+          render();
+        })
+        .catch(error => { return error.message })
     });
   }
   
   function handleDeleteItemClicked() {
-    // like in `handleItemCheckClicked`, we use event delegation
+    
     $('.js-shopping-list').on('click', '.js-item-delete', event => {
-      // get the index of the item in store.items
-      const id = getItemIdFromElement(event.currentTarget);
-      // delete the item
-      store.findAndDelete(id);
-      // render the updated shopping list
-      render();
+      const id = getItemIdFromElement(event.currentTarget);    
+      
+      api.deleteItem(id)
+        .then(res => res.json())
+        .then((newItem) => {
+          store.addItem(newItem);
+          render();
+        })
+        .catch(error => { return error.message });
     });
   }
   
@@ -102,9 +118,18 @@ const shoppingList = (function(){
       event.preventDefault();
       const id = getItemIdFromElement(event.currentTarget);
       const itemName = $(event.currentTarget).find('.shopping-item').val();
-      store.findAndUpdateName(id, itemName);
-      store.setItemIsEditing(id, false);
-      render();
+      const newItem = {
+        name: itemName,
+      };
+      
+      api.updateItem(id, newItem)
+        .then(res => res.json())
+        .then((newItem) => {
+          store.addItem(newItem);
+          store.findAndUpdateName(id, itemName);
+          render();
+        })
+        .catch(error => { return error.message });
     });
   }
   
